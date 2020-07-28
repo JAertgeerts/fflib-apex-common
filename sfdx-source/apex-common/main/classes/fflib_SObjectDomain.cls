@@ -198,17 +198,23 @@ public virtual with sharing class fflib_SObjectDomain
 	 * Base handler for the Apex Trigger event Before Insert, calls the onApplyDefaults method, followed by onBeforeInsert
 	 **/
     public virtual void handleBeforeInsert() 
-    { 
-    	onApplyDefaults(); 
-    	onBeforeInsert();
-    }
+    {
+		if (!this.Records.isEmpty())
+		{
+			onApplyDefaults(); 
+			onBeforeInsert();
+		}
+	}
     
     /**
      * Base handler for the Apex Trigger event Before Update, calls the onBeforeUpdate method
      **/
     public virtual void handleBeforeUpdate(Map<Id,SObject> existingRecords) 
     {
-    	onBeforeUpdate(existingRecords);
+		if (!this.Records.isEmpty())
+		{
+			onBeforeUpdate(existingRecords);
+		}
     }
     
     /**
@@ -216,7 +222,10 @@ public virtual with sharing class fflib_SObjectDomain
      **/
     public virtual void handleBeforeDelete() 
     {
-    	onBeforeDelete();
+		if (!this.Records.isEmpty())
+		{
+			onBeforeDelete();
+		}
     }
     
     /**
@@ -227,10 +236,13 @@ public virtual with sharing class fflib_SObjectDomain
     public virtual void handleAfterInsert()
     {
     	if(Configuration.EnforcingTriggerCRUDSecurity && !SObjectDescribe.isCreateable()) 
-    	   throw new DomainException('Permission to create an ' + SObjectDescribe.getName() + ' denied.');
-    	   
-    	onValidate();
-    	onAfterInsert(); 
+		   throw new DomainException('Permission to create an ' + SObjectDescribe.getName() + ' denied.');
+
+		if (!this.Records.isEmpty())
+		{
+	    	onValidate();
+			onAfterInsert();
+		}
     }
     
     /**
@@ -242,11 +254,14 @@ public virtual with sharing class fflib_SObjectDomain
     {    	
     	if(Configuration.EnforcingTriggerCRUDSecurity && !SObjectDescribe.isUpdateable()) 			    		
     	   throw new DomainException('Permission to update an ' + SObjectDescribe.getName() + ' denied.');
-    	
-    	if(Configuration.OldOnUpdateValidateBehaviour)
-    		onValidate();
-    	onValidate(existingRecords);
-    	onAfterUpdate(existingRecords); 
+		
+		if (!this.Records.isEmpty())
+		{
+			if(Configuration.OldOnUpdateValidateBehaviour)
+				onValidate();
+			onValidate(existingRecords);
+			onAfterUpdate(existingRecords);
+		}
     }
     
     /**
@@ -257,9 +272,12 @@ public virtual with sharing class fflib_SObjectDomain
     public virtual void handleAfterDelete() 
     {
     	if(Configuration.EnforcingTriggerCRUDSecurity && !SObjectDescribe.isDeletable())
-    	   throw new DomainException('Permission to delete an ' + SObjectDescribe.getName() + ' denied.');
-    	   
-    	onAfterDelete();
+		   throw new DomainException('Permission to delete an ' + SObjectDescribe.getName() + ' denied.');
+
+		if (!this.Records.isEmpty())
+		{
+			onAfterDelete();
+		}
     }	
 
     /**
@@ -271,8 +289,11 @@ public virtual with sharing class fflib_SObjectDomain
     {
     	if(Configuration.EnforcingTriggerCRUDSecurity && !SObjectDescribe.isCreateable())
     	   throw new DomainException('Permission to create an ' + SObjectDescribe.getName() + ' denied.');
-    	   
-    	onAfterUndelete();
+
+		if (!this.Records.isEmpty())
+		{   
+			onAfterUndelete();
+		}
     }	
 
     /**
@@ -298,7 +319,15 @@ public virtual with sharing class fflib_SObjectDomain
     {
     	return Records;
     }
-    
+
+	/**
+	 * Returns the Ids of the Records in the Domain.
+	 */
+	public Set<Id> getRecordIds()
+	{
+		return (new Map<Id,SObject>(Records)).keySet();
+	}
+
 	/**
 	 * Detects whether any values in context records have changed for given fields as strings
 	 * Returns list of SObject records that have changes in the specified fields
@@ -352,6 +381,39 @@ public virtual with sharing class fflib_SObjectDomain
 			}
 		}
 		return changedRecords;
+	}
+
+	public Boolean isEmpty()
+	{
+		return Records.isEmpty();
+	}
+
+	public Boolean isNotEmpty()
+	{
+		return !isEmpty();
+	}
+
+	@TestVisible
+	protected List<SObject> getBlanks(SObjectField sObjectField)
+	{
+		List<SObject> result = new List<SObject>();
+		for (SObject record : Records)
+		{
+			if (String.isBlank((String) record.get(sObjectField)))
+			{
+				result.add(record);
+			}
+		}
+		return result;
+	}
+
+	@TestVisible
+	protected void setField(SObjectField sObjectField, Object value)
+	{
+		for (SObject record : Records)
+		{
+			record.put(sObjectField, value);
+		}
 	}
 
 	/**
